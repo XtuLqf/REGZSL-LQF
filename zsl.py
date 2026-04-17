@@ -72,7 +72,8 @@ class zsl_NShot:
 
             for j, cur_class in enumerate(selected_cls):
                 indx = np.where(labels == cur_class)[0]
-                selected_img = np.random.choice(indx, 2*self.k_shot, False)
+                replace = len(indx) < 2 * self.k_shot
+                selected_img = np.random.choice(indx, 2*self.k_shot, replace)
                 x_spt.append(Data[selected_img])
                 y_spt.append(labels[selected_img])
                 #print('shape: '+str(np.array(x_spt).shape))

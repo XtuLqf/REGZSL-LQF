@@ -116,9 +116,16 @@ class AttentionTransfer(nn.Module):
 
 
 class RKdAngle(nn.Module):
-    def forward(self, student, teacher,opt):
+    def forward(self, student, teacher, opt, max_samples=128):
         # N x C
         # N x N x C
+        # Subsample to avoid OOM when teacher dim (e.g., 1024) is large;
+        # intermediate tensor shape is (N, N, C), capped at max_samples.
+        N = student.shape[0]
+        if N > max_samples:
+            idx = torch.randperm(N, device=student.device)[:max_samples]
+            student = student[idx]
+            teacher = teacher[idx]
 
         with torch.no_grad():
             td = (teacher.unsqueeze(0) - teacher.unsqueeze(1))

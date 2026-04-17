@@ -79,14 +79,9 @@ class Embedding_model(nn.Module):
         self.criterion = nn.CrossEntropyLoss()
 
     def get_center(self):
-        # Model may still be on CPU during __init__, compute on CPU then move
         center_emb = self.lrelu(self.fc1(self.dataset.tr_cls_centroid))
-        center = self.fc2(center_emb).detach()
-        # Register as buffer so .to(device) moves it automatically
-        if hasattr(self, 'center'):
-            self.center.copy_(center)
-        else:
-            self.register_buffer('center', center)
+        self.center = self.fc2(center_emb)
+        self.center = self.center.detach().cuda()
 
     def update_center(self, att, feature, label):
         att_weight = att.mm(att.t())
@@ -121,7 +116,7 @@ class Embedding_model(nn.Module):
         logits_max, _ = torch.max(anchor_dot_contrast, dim=1, keepdim=True)
         logits = anchor_dot_contrast - logits_max.detach()
 
-        mask = F.one_hot(local_label, num_classes=self.dataset.seenclass_num).float().to(features.device)
+        mask = F.one_hot(local_label, num_classes=self.dataset.seenclass_num).float().cuda()
 
         # compute log_prob
         exp_logits = torch.exp(logits)
@@ -167,17 +162,21 @@ class Embedding_model_baseline(nn.Module):
 
 def MultiClassCrossEntropy(logits, labels):
     # Ld = -1/N * sum(N) sum(C) softmax(label) * log(softmax(logit))
-    device = logits.device
-    labels = labels.to(device)
+    labels = labels.cuda()
     logits_normed = F.normalize(logits, dim=-1, p=2)
     labels_normed = F.normalize(labels, dim=-1, p=2)
-    outputs = torch.log_softmax(logits_normed, dim=1)  # compute the log of softmax values
+    outputs = torch.log_softmax(logits_normed, dim=1).cuda()  # compute the log of softmax values
     labels = torch.softmax(labels_normed, dim=1)
 
+    outputs_softmax = torch.softmax(logits_normed, dim=1)
+
+    # print('outputs: ', outputs)
+    # print('labels: ', labels.shape)
     outputs = torch.sum(outputs * labels, dim=1, keepdim=False)
     outputs = -torch.mean(outputs, dim=0, keepdim=False)
+    # print('OUT: ', outputs)
 
-    return outputs
+    return outputs.cuda()
 
 class Generator(nn.Module):
     def __init__(self, opt):

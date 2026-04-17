@@ -19,24 +19,21 @@ def rand_no_repeat(low, height, size):
 
 def MultiClassCrossEntropy(logits, labels, T):
     # Ld = -1/N * sum(N) sum(C) softmax(label) * log(softmax(logit))
-    device = logits.device
-    labels = labels.to(device)
-    outputs = torch.log_softmax(logits / T, dim=1)  # compute the log of softmax values
+    labels = labels.cuda()
+    outputs = torch.log_softmax(logits / T, dim=1).cuda()  # compute the log of softmax values
     labels = torch.softmax(labels / T, dim=1)
+    # print('outputs: ', outputs)
+    # print('labels: ', labels.shape)
     outputs = torch.sum(outputs * labels, dim=1, keepdim=False)
     outputs = -torch.mean(outputs, dim=0, keepdim=False)
-    return outputs
+    # print('OUT: ', outputs)
+    return outputs.cuda()
 
 class Classifier:
     def __init__(self, syn_feature, test_local, dataset, netE, opt, cur_epoch,generalized = True):
-        if opt.cuda:
-            self.device = torch.device("cuda:0")
-        else:
-            self.device = torch.device("cpu")
-
-        emb_X = netE(dataset.train_feature.to(self.device),emb = True)
+        emb_X = netE(dataset.train_feature.cuda(),emb = True)
         self.netE = netE
-        self.train_X = torch.cat((emb_X.detach().cpu(), syn_feature), dim=0)
+        self.train_X = torch.cat((emb_X.data.cpu(), syn_feature), dim=0)
         #test_local = utils.map_label(syn_label, dataset.unseenclasses)
         test_local_label = test_local + dataset.seenclass_num
         self.train_Y = torch.cat((dataset.train_local_label, test_local_label), 0)
@@ -64,8 +61,13 @@ class Classifier:
         self.input_dim = opt.hidden_size
         self.train_data = data.TensorDataset(self.train_X, self.train_Y)
 
+        if opt.cuda:
+            self.device = torch.device("cuda:0")
+        else:
+            self.device = torch.device("cpu")
+
         self.input = torch.FloatTensor(self.batch_size, self.input_dim).to(self.device)
-        self.label = torch.LongTensor(self.batch_size).to(self.device)
+        self.label = torch.LongTensor(self.batch_size)
 
         self.model = SoftmaxClassifier(self.input_dim, opt.class_num).to(self.device)
         #self.modelS = SoftmaxClassifier(opt.resSize, opt.seen_num).to(self.device)
@@ -98,8 +100,8 @@ class Classifier:
                 self.input.copy_(batch_input)
                 self.label.copy_(batch_label)
                 output = self.modelU(self.input)
-                loss = self.criterion(output, self.label)
-                mean_loss += loss.item()
+                loss = self.criterion(output, self.label.cuda())
+                mean_loss += loss.data
                 loss.backward()
                 self.optimizerU.step()
             pred_unseen = self.valU(self.test_unseen_feature)
@@ -126,7 +128,7 @@ class Classifier:
                     self.input.copy_(batch_input)
                     self.label.copy_(batch_label)
                     output = self.modelU(self.input)
-                    loss = self.criterion(output, self.label)
+                    loss = self.criterion(output, self.label.cuda())
                     loss.backward()
                     self.optimizerU.step()
                 pred_unseen = self.valU(self.test_unseen_feature)
@@ -145,7 +147,7 @@ class Classifier:
                     self.input.copy_(batch_input)
                     self.label.copy_(batch_label)
                     output = self.modelS(self.input)
-                    loss = self.criterion(output, self.label)
+                    loss = self.criterion(output, self.label.cuda())
                     loss.backward()
                     self.optimizerS.step()
                 pred_seen = self.valS(self.test_seen_feature)
@@ -165,30 +167,25 @@ class Classifier:
                 self.label.copy_(batch_label)
 
                 unseen = self.label >= self.opt.seen_num
-                unseen_index = unseen.nonzero(as_tuple=False).reshape(-1)
+                unseen_index = unseen.nonzero().squeeze(dim=1)
 
                 seen = self.label < self.opt.seen_num
-                seen_index = seen.nonzero(as_tuple=False).reshape(-1)
+                seen_index = seen.nonzero().squeeze(dim=1)
 
+                unseen_embed = self.input[unseen_index]
+                seen_embed = self.input[seen_index]
                 output = self.model(self.input)
-
-                dist_loss_u = torch.tensor(0.0, device=self.device)
-                dist_loss_s = torch.tensor(0.0, device=self.device)
-                if unseen_index.numel() > 0:
-                    unseen_embed = self.input[unseen_index]
-                    dist_target_u = self.Ubest(unseen_embed)
-                    logits_dist_u = output[unseen_index, self.opt.seen_num:]
-                    dist_loss_u = MultiClassCrossEntropy(logits_dist_u, dist_target_u, self.opt.class_temp_u)
-                if seen_index.numel() > 0:
-                    seen_embed = self.input[seen_index]
-                    dist_target_s = self.Sbest(seen_embed)
-                    logits_dist_s = output[seen_index, :self.opt.seen_num]
-                    dist_loss_s = MultiClassCrossEntropy(logits_dist_s, dist_target_s, self.opt.class_temp_s)
+                dist_target_u = self.Ubest(unseen_embed)
+                dist_target_s = self.Sbest(seen_embed)
+                logits_dist_u = output[unseen_index, self.opt.seen_num:]
+                logits_dist_s = output[seen_index, :self.opt.seen_num]
+                dist_loss_u = MultiClassCrossEntropy(logits_dist_u, dist_target_u, self.opt.class_temp_u)
+                dist_loss_s = MultiClassCrossEntropy(logits_dist_s, dist_target_s, self.opt.class_temp_s)
                 if self.cur_epoch>=self.opt.Ustart:
                     print("??")
-                    loss = self.criterion(output, self.label)+self.opt.distill_weight_u * dist_loss_u + self.opt.distill_weight_s * dist_loss_s
+                    loss = self.criterion(output, self.label.cuda())+self.opt.distill_weight_u * dist_loss_u + self.opt.distill_weight_s * dist_loss_s
                 else:
-                    loss = self.criterion(output, self.label)
+                    loss = self.criterion(output, self.label.cuda())
                 loss.backward()
                 self.optimizer.step()
 
@@ -268,17 +265,12 @@ class SoftmaxClassifier(nn.Module):
         return o
 
 def bias_loss(out, target, seenclasses, unseenclasses, c=1):
-    device = out.device
     out = torch.exp(out)
     class_num = seenclasses.shape[0] + unseenclasses.shape[0]
-    target_cpu = target.cpu()
-    unseenclasses_cpu = unseenclasses.cpu()
-    one_hot_label_weight = torch.eye(class_num)[target_cpu]
-    one_hot_label_weight[:, unseenclasses_cpu] *= c
+    one_hot_label_weight = torch.eye(class_num)[target, :]
+    one_hot_label_weight[:, unseenclasses] *= c
     weight = torch.ones_like(one_hot_label_weight)
-    weight[:, unseenclasses_cpu] *= c
-    one_hot_label_weight = one_hot_label_weight.to(device)
-    weight = weight.to(device)
-    p = one_hot_label_weight * out
-    loss = -torch.sum(torch.log(torch.sum(p, dim=1) / torch.sum(weight * out, dim=1)), dim=0) / out.shape[0]
+    weight[:, unseenclasses] *= c
+    p = one_hot_label_weight.to(out.device) * out
+    loss = -torch.sum(torch.log(torch.sum(p, dim=1) / torch.sum(weight.to(out.device) * out, dim=1)), dim=0) / out.shape[0]
     return loss

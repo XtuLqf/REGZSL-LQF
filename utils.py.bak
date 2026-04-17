@@ -108,16 +108,15 @@ def generate_syn_feature(netG, netE, classes, attribute, device, opt, syn_num):
     syn_att = syn_att.to(device)
     syn_noise = syn_noise.to(device)
 
-    with torch.no_grad():
-        for i in range(nclass):
-            iclass = classes[i]
-            iclass_att = attribute[iclass]
-            syn_att.copy_(iclass_att.repeat(syn_num, 1))
-            syn_noise.normal_(0, 1)
-            output = netG(syn_noise, syn_att)
-            emb_output = netE(output, emb=True)
-            syn_feature.narrow(0, i * syn_num, syn_num).copy_(emb_output.detach().cpu())
-            syn_label.narrow(0, i * syn_num, syn_num).fill_(iclass)
+    for i in range(nclass):
+        iclass = classes[i]
+        iclass_att = attribute[iclass]
+        syn_att.copy_(iclass_att.repeat(syn_num, 1))
+        syn_noise.normal_(0, 1)
+        output = netG(syn_noise, syn_att)
+        emb_output = netE(output, emb=True)
+        syn_feature.narrow(0, i * syn_num, syn_num).copy_(emb_output.data.cpu())
+        syn_label.narrow(0, i * syn_num, syn_num).fill_(iclass)
 
     return syn_feature, syn_label
 
@@ -134,28 +133,27 @@ def generate_syn_aug_feature_after(netG, netE, classes, attribute, device, opt, 
     syn_att = syn_att.to(device)
     syn_noise = syn_noise.to(device)
 
-    with torch.no_grad():
-        embed_feature = netE(dataset.train_feature.to(device), emb=True)  # real embed
-        tr_cls_centroid = torch.zeros([dataset.seenclass_num, dataset.train_feature.shape[1]])
-        for j in range(dataset.seenclass_num):
-            tr_cls_centroid[j] = torch.mean(embed_feature[dataset.train_local_label == j], dim=0)
-        for i in range(nclass):
-            weight = F.softmax(dataset.s_u_semantic_similarity_unseen[i], dim=-1)
-            closer_seen_center = tr_cls_centroid[dataset.s_unseen_idx_mat[i]]
-            calib_fea = torch.einsum('i,ik->k', [weight, closer_seen_center.detach().cpu()])
-            iclass = classes[i]
-            iclass_att = attribute[iclass]
-            syn_att.copy_(iclass_att.repeat(syn_num, 1))
-            syn_noise.normal_(0, 1)
-            output = netG(syn_noise, syn_att)
-            emb_output, outz = netE(output, retrieval=True)  # syn embed
-            calib_fea_dev = calib_fea.to(device)
-            mix_fea = opt.gamma * emb_output + (1 - opt.gamma) * calib_fea_dev.unsqueeze(0)
+    embed_feature = netE(dataset.train_feature.cuda(), emb=True)  # real embed
+    tr_cls_centroid = torch.zeros([dataset.seenclass_num, dataset.train_feature.shape[1]])
+    for j in range(dataset.seenclass_num):
+        tr_cls_centroid[j] = torch.mean(embed_feature[dataset.train_local_label == j], dim=0)
+    for i in range(nclass):
+        weight = F.softmax(dataset.s_u_semantic_similarity_unseen[i], dim=-1)
+        closer_seen_center = tr_cls_centroid[dataset.s_unseen_idx_mat[i]]  # 与未见类相似度最高的N个可见类特征中心
+        calib_fea = torch.einsum('i,ik->k', [weight, closer_seen_center.data.cpu()])
+        iclass = classes[i]
+        iclass_att = attribute[iclass]
+        syn_att.copy_(iclass_att.repeat(syn_num, 1))
+        syn_noise.normal_(0, 1)
+        output = netG(syn_noise, syn_att)
+        emb_output, outz = netE(output, retrieval=True)  # syn embed
+        for j in range(syn_num):
+           mix_fea[j] = opt.gamma * emb_output[j] + (1 - opt.gamma) * calib_fea.cuda()
 
-            syn_feature.narrow(0, i * syn_num, syn_num).copy_(mix_fea.detach().cpu())
-            syn_feature_no_mix.narrow(0, i * syn_num, syn_num).copy_(emb_output.detach().cpu())
-            syn_proj_feature_no_mix.narrow(0, i * syn_num, syn_num).copy_(outz.detach().cpu())
-            syn_label.narrow(0, i * syn_num, syn_num).fill_(iclass)
+        syn_feature.narrow(0, i * syn_num, syn_num).copy_(mix_fea.data.cpu())
+        syn_feature_no_mix.narrow(0, i * syn_num, syn_num).copy_(emb_output.data.cpu())
+        syn_proj_feature_no_mix.narrow(0, i * syn_num, syn_num).copy_(outz.data.cpu())
+        syn_label.narrow(0, i * syn_num, syn_num).fill_(iclass)
 
     return syn_feature, syn_feature_no_mix, syn_proj_feature_no_mix, syn_label
 
@@ -171,26 +169,25 @@ def generate_syn_aug_feature_after_RF(netG, netE, classes, attribute, device, op
     syn_att = syn_att.to(device)
     syn_noise = syn_noise.to(device)
 
-    with torch.no_grad():
-        embed_feature = netE(dataset.train_feature.to(device), emb=True)  # real embed
-        tr_cls_centroid = torch.zeros([dataset.seenclass_num, dataset.train_feature.shape[1]])
-        for j in range(dataset.seenclass_num):
-            tr_cls_centroid[j] = torch.mean(embed_feature[dataset.train_local_label == j], dim=0)
-        for i in range(nclass):
-            weight = F.softmax(dataset.s_u_semantic_similarity_unseen[i], dim=-1)
-            closer_seen_center = tr_cls_centroid[dataset.s_unseen_idx_mat[i]]
-            calib_fea = torch.einsum('i,ik->k', [weight, closer_seen_center.detach().cpu()])
-            iclass = classes[i]
-            iclass_att = attribute[iclass]
-            syn_att.copy_(iclass_att.repeat(syn_num, 1))
-            syn_noise.normal_(0, 1)
-            output = netG(syn_noise, syn_att)
-            emb_output = netE(output, emb=True)  # syn embed
-            calib_fea_dev = calib_fea.to(device)
-            mix_fea = opt.gamma * emb_output + (1 - opt.gamma) * calib_fea_dev.unsqueeze(0)
+    embed_feature = netE(dataset.train_feature.cuda(), emb=True)  # real embed
+    tr_cls_centroid = torch.zeros([dataset.seenclass_num, dataset.train_feature.shape[1]])
+    for j in range(dataset.seenclass_num):
+        tr_cls_centroid[j] = torch.mean(embed_feature[dataset.train_local_label == j], dim=0)
+    for i in range(nclass):
+        weight = F.softmax(dataset.s_u_semantic_similarity_unseen[i], dim=-1)
+        closer_seen_center = tr_cls_centroid[dataset.s_unseen_idx_mat[i]]  # 与未见类相似度最高的N个可见类特征中心
+        calib_fea = torch.einsum('i,ik->k', [weight, closer_seen_center.data.cpu()])
+        iclass = classes[i]
+        iclass_att = attribute[iclass]
+        syn_att.copy_(iclass_att.repeat(syn_num, 1))
+        syn_noise.normal_(0, 1)
+        output = netG(syn_noise, syn_att)
+        emb_output = netE(output, emb=True)  # syn embed
+        for j in range(syn_num):
+           mix_fea[j] = opt.gamma * emb_output[j] + (1 - opt.gamma) * calib_fea.cuda()
 
-            syn_feature.narrow(0, i * syn_num, syn_num).copy_(mix_fea.detach().cpu())
-            syn_label.narrow(0, i * syn_num, syn_num).fill_(iclass)
-            syn_att_all.narrow(0, i * syn_num, syn_num).copy_(syn_att)
+        syn_feature.narrow(0, i * syn_num, syn_num).copy_(mix_fea.data.cpu())
+        syn_label.narrow(0, i * syn_num, syn_num).fill_(iclass)
+        syn_att_all.narrow(0, i * syn_num, syn_num).copy_(syn_att)
 
     return syn_feature, syn_label, syn_att_all

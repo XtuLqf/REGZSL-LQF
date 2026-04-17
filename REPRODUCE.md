@@ -92,6 +92,8 @@ test -d log || mkdir log
 
 ### 主模型训练（main.py）
 
+下面三条是按当前代码入口检查过的优先训练命令，针对 AWA2、CUB、SUN。
+
 **AWA1**：
 ```bash
 python main.py --dataset AWA1 --way 8 --shot 32 --c_batch_size 5000 --syn_num 5000 --c_epoch 30 --epoch 100 --mad 0.8 --seen_Neighbours 4 --gamma 0.8 --contrast_ratio 0.1 --manualSeed 438
@@ -99,7 +101,7 @@ python main.py --dataset AWA1 --way 8 --shot 32 --c_batch_size 5000 --syn_num 50
 
 **AWA2**：
 ```bash
-python main.py --dataset AWA2 --way 8 --shot 32 --c_batch_size 5000 --syn_num 5000 --c_epoch 30 --epoch 100 --mad 0.8 --seen_Neighbours 4 --gamma 0.8 --contrast_ratio 0.1 --manualSeed 438
+python main.py --dataset AWA2 --dataroot /home/st/pytorch/lqf/Dataset --way 8 --shot 32 --c_batch_size 5000 --syn_num 5000 --c_epoch 30 --epoch 100 --mad 0.8 --seen_Neighbours 4 --gamma 0.8 --contrast_ratio 0.1 --manualSeed 438
 ```
 
 **CUB**：
@@ -111,7 +113,7 @@ python main.py --dataset CUB --dataroot /home/st/pytorch/lqf/Dataset --cub_att s
 
 **SUN**：
 ```bash
-python main.py --dataset SUN --way 8 --shot 32 --c_batch_size 5000 --syn_num 5000 --c_epoch 30 --epoch 100 --mad 0.8 --seen_Neighbours 4 --gamma 0.8 --contrast_ratio 0.1 --manualSeed 438
+python main.py --dataset SUN --dataroot /home/st/pytorch/lqf/Dataset --way 8 --shot 32 --c_batch_size 5000 --syn_num 5000 --c_epoch 30 --epoch 100 --mad 0.8 --seen_Neighbours 4 --gamma 0.8 --contrast_ratio 0.1 --manualSeed 438
 ```
 
 **FLO**：
@@ -119,7 +121,7 @@ python main.py --dataset SUN --way 8 --shot 32 --c_batch_size 5000 --syn_num 500
 python main.py --dataset FLO --way 8 --shot 32 --c_batch_size 5000 --syn_num 5000 --c_epoch 30 --epoch 100 --mad 0.8 --seen_Neighbours 4 --gamma 0.8 --contrast_ratio 0.1 --manualSeed 438
 ```
 
-> **注意**：以上命令中的超参数仅供参考，不同数据集可能需要不同的超参数配置以达到最优效果。请根据 `option.py` 中的参数说明进行调整，并通过 `--dataroot` 指定数据集路径。
+> **说明**：以上 AWA2、CUB、SUN 命令沿用了作者在 README 中公开的 AWA1 示例超参数组合。当前仓库没有单独提供 AWA2、CUB、SUN 的官方训练脚本，因此这些命令应视为“与当前代码一致的起跑命令”，不是逐数据集调优后的最终最优配置。
 
 ### Baseline 训练（baseline.py）
 
