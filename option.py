@@ -10,12 +10,13 @@ class Options(object):
         # data parameter
         parser.add_argument('--dataset', default='AWA1')
 
-        parser.add_argument('--dataroot', default='/data1/wuyao/dataset/gzsl_data', help='path to dataset')
+        parser.add_argument('--dataroot', default='/home/st/pytorch/lqf/Dataset', help='path to dataset')
 
         parser.add_argument('--image_embedding', default='res101')
         parser.add_argument('--len', type = int, default=50)
 
-        parser.add_argument('--class_embedding', default='att')
+        parser.add_argument('--class_embedding', default='att',
+                    help='semantic embedding type, primarily used for non-CUB datasets')
 
         parser.add_argument('--preprocessing', action='store_true', default=True,
                             help='enable MinMaxScaler on visual features')
@@ -76,7 +77,8 @@ class Options(object):
 
         parser.add_argument('--gzsl', type=bool, default=True, help='gzsl or not')
 
-        parser.add_argument('--cub_att', type=str, default= 'sent', help='sent or att')
+        parser.add_argument('--cub_att', choices=['att', 'sent'], default='sent',
+                    help='CUB semantic embedding type: sent=1024D sentence embeddings, att=312D attributes')
 
         parser.add_argument('--proSize', type=int, default=512, help='size of projection')
 
@@ -110,7 +112,9 @@ class Options(object):
         parser.add_argument('--Uepoch', type=int, default=70, help='number of epochs to train for classifier')
         parser.add_argument('--Sepoch', type=int, default=70, help='number of epochs to train for classifier')
 
-        parser.add_argument('--without_FM', action='store_true', default=False)        
+        parser.add_argument('--without_FM', action='store_true', default=False)
+        parser.add_argument('--eval_baseline', action='store_true', default=False,
+                    help='evaluate baseline model instead of RE-GZSL')
 
         self.parser = parser
 

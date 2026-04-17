@@ -1,4 +1,5 @@
 import numpy as np
+import os
 import scipy.io as sio
 import torch
 from sklearn import preprocessing
@@ -21,7 +22,13 @@ class Dataset(object):
         self.label = mat['labels'].astype(int).squeeze() - 1
         self.image_file = mat['image_files']
 
-        mat = sio.loadmat(opt.dataroot + "/" + opt.dataset + "/" + opt.class_embedding + "_splits.mat")
+        semantic_name = opt.class_embedding
+        semantic_file = opt.dataroot + "/" + opt.dataset + "/" + opt.class_embedding + "_splits.mat"
+        if opt.dataset == 'CUB':
+            semantic_name = opt.cub_att
+            semantic_file = opt.dataroot + "/CUB/" + opt.cub_att + "_splits.mat"
+
+        mat = sio.loadmat(semantic_file)
 
         trainval_loc = mat['trainval_loc'].squeeze() - 1
         test_seen_loc = mat['test_seen_loc'].squeeze() - 1
@@ -29,14 +36,17 @@ class Dataset(object):
         self.allclasses = torch.from_numpy(np.unique(self.label))
         self.allclasses_num = self.allclasses.size(0)
 
-        if opt.dataset == 'CUB':
-            file_path = opt.dataroot + '/CUB/sent_splits.mat' # 1024D
-            mat = sio.loadmat(file_path)
+        if opt.dataset == 'CUB' and opt.cub_att == 'sent':
             self.attribute = F.normalize(torch.from_numpy(mat['att'].T), dim=1).float()
-            # file_path = opt.dataroot + '/CUB/cub_attributes_reed.npy'
-            # self.attribute = F.normalize(torch.from_numpy(np.load(file_path)), dim=1).float()
         else:
             self.attribute = torch.from_numpy(mat['att'].T).float()
+
+        print('[Dataset] %s: semantic=%s, file=%s, dim=%d' % (
+            opt.dataset,
+            semantic_name,
+            os.path.basename(semantic_file),
+            self.attribute.shape[1],
+        ))
 
         if opt.fine_tuning:
             if opt.preprocessing:

@@ -95,8 +95,8 @@ else:
     device = torch.device("cpu")
 cudnn.benchmark = True
 
-if not torch.cuda.is_available() and not opt.cuda:
-    print("WARNING: No GPU!")
+if opt.cuda and not torch.cuda.is_available():
+    print("ERROR: CUDA was requested but no GPU is available")
     exit()
 
 # load data
@@ -114,7 +114,8 @@ opt.seen_num = dataset.seenclass_num
 
 print("Training samples: ", dataset.train_label.shape[0])
 
-baseline = True
+baseline = opt.eval_baseline
+print('Evaluating model: %s' % ('baseline' if baseline else 'RE-GZSL'))
 
 # eval
 netG = model.Generator(opt).to(device)
@@ -127,7 +128,7 @@ else:
     model_path = './output/RE-GZSL'
     netE = model.Embedding_model(opt, dataset).to(device)
 
-state_dict = torch.load(os.path.join(model_path, 'best_model.pth'))
+state_dict = torch.load(os.path.join(model_path, 'best_model.pth'), map_location=device)
 loaded_parameters = netG.load_state_dict(state_dict.pop('state_dict_G'))
 # if not loaded_parameters.missing_keys and not loaded_parameters.unexpected_keys:
 #     print("G success！")

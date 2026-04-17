@@ -68,8 +68,8 @@ else:
     device = torch.device("cpu")
 cudnn.benchmark = True
 
-if not torch.cuda.is_available() and not opt.cuda:
-    print("WARNING: No GPU!")
+if opt.cuda and not torch.cuda.is_available():
+    print("ERROR: CUDA was requested but no GPU is available")
     exit()
 
 # load data
