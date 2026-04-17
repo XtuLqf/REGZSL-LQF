@@ -33,7 +33,6 @@ pip install numpy scipy scikit-learn matplotlib pillow
 
 若使用微调模式（`--fine_tuning`），还需要在项目根目录下准备：
 
-```
 fine_tuning_data/{dataset}/
 ├── train_feature.npy
 ├── test_seen_feature.npy
