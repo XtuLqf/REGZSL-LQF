@@ -74,8 +74,8 @@ class Embedding_model(nn.Module):
         self.relu = nn.ReLU(True)
         self.momentum = opt.mad
         self.dataset = dataset
-        self.get_center()
         self.apply(weights_init)
+        self.get_center()
         self.criterion = nn.CrossEntropyLoss()
 
     def get_center(self):
@@ -89,7 +89,7 @@ class Embedding_model(nn.Module):
             self.register_buffer('center', center)
 
     def update_center(self, att, feature, label):
-        att_weight = att.mm(att.t())
+        att_weight = F.softmax(att.mm(att.t()), dim=-1)
         new_feature = torch.matmul(att_weight, feature)
         unique_class = torch.unique(label)
         for i in unique_class:

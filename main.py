@@ -119,7 +119,7 @@ netD = model.Discriminator(opt).to(device)
 netE = model.Embedding_model(opt, dataset).to(device)
 # setup optimize
 optimizerD = optim.Adam(netD.parameters(), lr=opt.lr, betas=(0.5, 0.999))
-optimizerG = optim.Adam(netG.parameters(), lr=opt.lr, betas=(0.5, 0.999))
+optimizerG = optim.Adam(list(netG.parameters()) + [logit_scale], lr=opt.lr, betas=(0.5, 0.999))
 optimizerE = optim.Adam(netE.parameters(), lr=3e-4)
 dist_criterion = RkdDistance()
 angle_criterion = RKdAngle()
@@ -150,8 +150,8 @@ for epoch in range(opt.epoch):
         # Step1: train discriminator
         for p in netD.parameters():
             p.requires_grad = True
-        for p in netE.parameters():  # reset requires_grad
-            p.requires_grad = True
+        for p in netE.parameters():  # freeze E during D training
+            p.requires_grad = False
         for iter_d in range(opt.critic_iter):
             sample(x_spt[iter_d], y_spt[iter_d])
             if i == 0 and epoch == 0 and iter_d == 0:
@@ -179,24 +179,26 @@ for epoch in range(opt.epoch):
             gp_loss.backward()
 
             optimizerD.step()
-            since_dp = time.time()
-            if i == 0 and epoch == 0 and iter_d == 0:
-                print('[DEBUG] before netE forward'); sys.stdout.flush()
-            out_z, out_z_c, loss = netE(input_res, label=input_label, local_label=local_label)
-            if i == 0 and epoch == 0 and iter_d == 0:
-                print('[DEBUG] netE forward OK, loss=', loss.item()); sys.stdout.flush()
-            netE.update_center(input_att, out_z_c.detach(), local_label)
 
-            loss_dis =  dist_criterion(out_z, input_att, opt)
-            loss_angle = angle_criterion(out_z, input_att, opt)
+        # Step1.5: train embedding model (once per outer iteration)
+        for p in netE.parameters():
+            p.requires_grad = True
+        sample(x_spt[0], y_spt[0])  # use first sub-batch for E
+        if i == 0 and epoch == 0:
+            print('[DEBUG] before netE forward'); sys.stdout.flush()
+        out_z, out_z_c, loss = netE(input_res, label=input_label, local_label=local_label)
+        if i == 0 and epoch == 0:
+            print('[DEBUG] netE forward OK, loss=', loss.item()); sys.stdout.flush()
+        netE.update_center(input_att, out_z_c.detach(), local_label)
 
-            loss =  opt.embed_ratio * loss + opt.angle_ratio * loss_angle + opt.dist_ratio * loss_dis
+        loss_dis = dist_criterion(out_z, input_att, opt)
+        loss_angle = angle_criterion(out_z, input_att, opt)
 
-            optimizerE.zero_grad()
-            loss.backward()
-            time_dp = time.time() - since_dp
-            # print('Time Elapsed: {}'.format(time_dp))
-            optimizerE.step() # update moving average of target encoder
+        loss = opt.embed_ratio * loss + opt.angle_ratio * loss_angle + opt.dist_ratio * loss_dis
+
+        optimizerE.zero_grad()
+        loss.backward()
+        optimizerE.step()
 
         # Step2: train generator
         for p in netD.parameters():  # reset requires_grad

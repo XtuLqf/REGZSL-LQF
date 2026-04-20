@@ -8,7 +8,6 @@ import torch.autograd as autograd
 from sklearn import preprocessing
 import torch.utils.data as data
 import torch.nn.functional as F
-from torch.autograd import Variable
 from tqdm import tqdm
 
 def map_label(label, classes):
@@ -58,13 +57,11 @@ def optimize_beta(beta, MI_loss, alpha2=1e-6):
     return beta_new
 
 def gradient_penalty_d(netD, real_data, fake_data, device, opt):
-    # print real_data.size()
     alpha = torch.rand(real_data.shape[0], 1)
     alpha = alpha.expand(real_data.size()).to(device)
 
-    interpolates = alpha * real_data + ((1 - alpha) * fake_data).to(device)
-
-    interpolates = Variable(interpolates, requires_grad=True)
+    interpolates = (alpha * real_data + ((1 - alpha) * fake_data)).to(device)
+    interpolates = interpolates.detach().requires_grad_(True)
 
     disc_interpolates = netD(interpolates)
 
@@ -78,13 +75,11 @@ def gradient_penalty_d(netD, real_data, fake_data, device, opt):
     return gradient_penalty
 
 def gradient_penalty_d_RF(netD, real_data, fake_data, device, opt):
-    # print real_data.size()
     alpha = torch.rand(real_data.shape[0], 1)
     alpha = alpha.expand(real_data.size()).to(device)
 
-    interpolates = alpha * real_data + ((1 - alpha) * fake_data).to(device)
-
-    interpolates = Variable(interpolates, requires_grad=True)
+    interpolates = (alpha * real_data + ((1 - alpha) * fake_data)).to(device)
+    interpolates = interpolates.detach().requires_grad_(True)
 
     disc_interpolates, _, _ = netD(interpolates)
 
@@ -100,7 +95,7 @@ def gradient_penalty_d_RF(netD, real_data, fake_data, device, opt):
 def generate_syn_feature(netG, netE, classes, attribute, device, opt, syn_num):
 
     nclass = classes.size(0)
-    syn_feature = torch.FloatTensor(nclass * syn_num, opt.resSize)
+    syn_feature = torch.FloatTensor(nclass * syn_num, opt.hidden_size)
     syn_label = torch.LongTensor(nclass * syn_num)
     syn_att = torch.FloatTensor(syn_num, opt.attSize)
     syn_noise = torch.FloatTensor(syn_num, opt.noiseSize)

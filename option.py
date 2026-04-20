@@ -111,6 +111,8 @@ class Options(object):
         parser.add_argument('--Sbatch_size', type=int, default=512, help='input batch size for classifier')
         parser.add_argument('--Uepoch', type=int, default=70, help='number of epochs to train for classifier')
         parser.add_argument('--Sepoch', type=int, default=70, help='number of epochs to train for classifier')
+        parser.add_argument('--distill_weight_u', default=1.0, type=float, help='distillation weight for unseen')
+        parser.add_argument('--distill_weight_s', default=1.0, type=float, help='distillation weight for seen')
 
         parser.add_argument('--without_FM', action='store_true', default=False)
         parser.add_argument('--eval_baseline', action='store_true', default=False,

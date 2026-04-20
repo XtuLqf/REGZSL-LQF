@@ -28,7 +28,7 @@ def MultiClassCrossEntropy(logits, labels, T):
     return outputs
 
 class Classifier:
-    def __init__(self, syn_feature, test_local, dataset, netE, opt, cur_epoch,generalized = True):
+    def __init__(self, syn_feature, syn_label, dataset, netE, opt, cur_epoch,generalized = True):
         if opt.cuda:
             self.device = torch.device("cuda:0")
         else:
@@ -37,7 +37,7 @@ class Classifier:
         emb_X = netE(dataset.train_feature.to(self.device),emb = True)
         self.netE = netE
         self.train_X = torch.cat((emb_X.detach().cpu(), syn_feature), dim=0)
-        #test_local = utils.map_label(syn_label, dataset.unseenclasses)
+        test_local = utils.map_label(syn_label, dataset.unseenclasses)
         test_local_label = test_local + dataset.seenclass_num
         self.train_Y = torch.cat((dataset.train_local_label, test_local_label), 0)
         self.S_train_X = self.train_X[:dataset.ntrain]

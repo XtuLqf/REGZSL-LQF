@@ -53,13 +53,13 @@ class Dataset(object):
         _test_seen_feature = scaler.transform(test_seen_fea)
         _test_unseen_feature = scaler.transform(test_unseen_fea)
         mx = _train_feature.max()
-        train_fea = train_fea * (1 / mx)
-        test_seen_fea = test_seen_fea * (1 / mx)
-        test_unseen_fea = test_unseen_fea * (1 / mx)
+        _train_feature = _train_feature * (1 / mx)
+        _test_seen_feature = _test_seen_feature * (1 / mx)
+        _test_unseen_feature = _test_unseen_feature * (1 / mx)
 
-        self.train_feature = torch.from_numpy(train_fea).float()
-        self.test_seen_feature = torch.from_numpy(test_seen_fea).float()
-        self.test_unseen_feature = torch.from_numpy(test_unseen_fea).float()
+        self.train_feature = torch.from_numpy(_train_feature).float()
+        self.test_seen_feature = torch.from_numpy(_test_seen_feature).float()
+        self.test_unseen_feature = torch.from_numpy(_test_unseen_feature).float()
 
         matcontent = sio.loadmat(opt.dataroot + "/" + opt.dataset + "/label.mat")
 

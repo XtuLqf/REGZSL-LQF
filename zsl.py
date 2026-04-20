@@ -20,6 +20,7 @@ class zsl_NShot:
         # self.normalization()
         self.batchsz = batchsz  # number of task
         self.n_cls = args.nclass  #
+        self.feat_dim = trainData[0].shape[1]  # feature dimension
         self.n_way = n_way  # n way
         self.k_shot = k_shot  # k shot
 
@@ -79,7 +80,7 @@ class zsl_NShot:
                 #print('shape: '+str(np.array(x_spt).shape))
 
             # shuffle inside a batch
-            x_spt = np.array(x_spt).reshape(self.n_way * 2 * self.k_shot, 2048)
+            x_spt = np.array(x_spt).reshape(self.n_way * 2 * self.k_shot, self.feat_dim)
             y_spt = np.array(y_spt).reshape(self.n_way * 2 * self.k_shot)
 
             # append [N,2048] => [b,N,2048]
@@ -87,7 +88,7 @@ class zsl_NShot:
             y_spts.append(y_spt)
 
         # [b,N,2048]
-        x_spts = np.array(x_spts).astype(np.float32).reshape(self.batchsz, setsz, 2048)
+        x_spts = np.array(x_spts).astype(np.float32).reshape(self.batchsz, setsz, self.feat_dim)
         y_spts = np.array(y_spts).astype(np.int64).reshape(self.batchsz, setsz)
         # [b,N,2048]
         data_cache.append([x_spts, y_spts])
