@@ -141,11 +141,9 @@ for epoch in range(opt.epoch):
     print('EP[%d/%d]******************************************************' % (epoch, opt.epoch))
     import sys; sys.stdout.flush()
     #netE.get_center()
-    for i in range(0, dataset.train_label.shape[0], opt.way * 2 * opt.shot):
+    for i in range(opt.iter_per_epoch):
         since_e = time.time()
         x_spt, y_spt = db.next('train')
-        if i == 0 and epoch == 0:
-            print('[DEBUG] batch 0: x_spt shape', x_spt.shape, 'y_spt shape', y_spt.shape); sys.stdout.flush()
 
         # Step1: train discriminator
         for p in netD.parameters():
@@ -154,16 +152,12 @@ for epoch in range(opt.epoch):
             p.requires_grad = False
         for iter_d in range(opt.critic_iter):
             sample(x_spt[iter_d], y_spt[iter_d])
-            if i == 0 and epoch == 0 and iter_d == 0:
-                print('[DEBUG] after sample: input_res device', input_res.device, 'input_att device', input_att.device); sys.stdout.flush()
             netD.zero_grad()
 
             real_data = torch.cat((input_res, input_att), 1)
             criticD_real = netD(real_data)
             criticD_real = -opt.gammaD * criticD_real.mean()
             criticD_real.backward()
-            if i == 0 and epoch == 0 and iter_d == 0:
-                print('[DEBUG] D real backward OK'); sys.stdout.flush()
 
             noise.normal_(0, 1)
             fake = netG(noise, input_att)
@@ -171,8 +165,6 @@ for epoch in range(opt.epoch):
             criticD_fake = netD(fake_data)
             criticD_fake = opt.gammaD * criticD_fake.mean()
             criticD_fake.backward()
-            if i == 0 and epoch == 0 and iter_d == 0:
-                print('[DEBUG] D fake backward OK'); sys.stdout.flush()
 
             gp_loss = utils.gradient_penalty_d(netD, real_data, fake_data, device, opt)
             gp_loss = opt.gammaD * gp_loss
@@ -184,11 +176,7 @@ for epoch in range(opt.epoch):
         for p in netE.parameters():
             p.requires_grad = True
         sample(x_spt[0], y_spt[0])  # use first sub-batch for E
-        if i == 0 and epoch == 0:
-            print('[DEBUG] before netE forward'); sys.stdout.flush()
         out_z, out_z_c, loss = netE(input_res, label=input_label, local_label=local_label)
-        if i == 0 and epoch == 0:
-            print('[DEBUG] netE forward OK, loss=', loss.item()); sys.stdout.flush()
         netE.update_center(input_att, out_z_c.detach(), local_label)
 
         loss_dis = dist_criterion(out_z, input_att, opt)
@@ -239,14 +227,11 @@ for epoch in range(opt.epoch):
         G_loss.backward()
 
         optimizerG.step()
-        if i == 0 and epoch == 0:
-            print('[DEBUG] G step OK, batch done'); sys.stdout.flush()
         # time_elapsed = time.time() - since
         # print('Time Elapsed: {}'.format(time_elapsed))
     netG.eval()
 
     # Step3: train classifier
-    print('[DEBUG] entering classifier section, epoch=', epoch); sys.stdout.flush()
     # initialize
     if epoch >= opt.best_epoch:
         for p in netE.parameters():  # reset requires_grad
